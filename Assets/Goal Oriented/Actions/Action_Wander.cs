@@ -27,6 +27,7 @@ public class Action_Wander : BaseAction
     {
         Navigation.StartMovement();
         Navigation.Destination = spawnPos;
+        enemy.Animator.SetTrigger("DoWalk");
 
         base.Begin();
     }

@@ -29,7 +29,8 @@ public class Action_Strafe : BaseAction
     public override void Begin()
     {
         Navigation.StartMovement();
-        
+        enemy.Animator.SetTrigger("DoWalk");
+
         base.Begin();
     }
 

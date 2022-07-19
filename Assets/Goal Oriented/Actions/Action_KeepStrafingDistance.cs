@@ -30,7 +30,8 @@ public class Action_KeepStrafingDistance : BaseAction
     public override void Begin()
     {
         Navigation.StartMovement();
-        
+        enemy.Animator.SetTrigger("DoWalk");
+
         base.Begin();
     }
 
@@ -49,16 +50,18 @@ public class Action_KeepStrafingDistance : BaseAction
         float weight;
 
         strafeDir = Helper.RotateVectorByAngleRadians(_goalDirection, (strafingClockwise ? -Mathf.PI : Mathf.PI) / 2f);
-        
-        if(enemy.DistanceToTarget < enemy.Stats.attackRange)
+
+        float strafeRange = enemy.Stats.attackRange * 0.9f;
+
+        if (enemy.DistanceToTarget < strafeRange)
         {
-            float lerpValue = enemy.DistanceToTarget / enemy.Stats.attackRange;
+            float lerpValue = enemy.DistanceToTarget / strafeRange;
             lerpValue = Mathf.Clamp(lerpValue, 0, 1);
             weight = Mathf.Lerp(CBS_WeightHelper.GoAway(_rayDirection, _goalDirection), CBS_WeightHelper.Strafe(_rayDirection, strafeDir), lerpValue);
         }
         else
         {
-            float lerpValue = (enemy.DistanceToTarget - enemy.Stats.attackRange) / (enemy.Stats.attackRange * chaseLerpDistanceMultiplier);
+            float lerpValue = (enemy.DistanceToTarget - strafeRange) / (strafeRange * chaseLerpDistanceMultiplier);
             lerpValue = Mathf.Clamp(lerpValue, 0, 1);
             weight = Mathf.Lerp(CBS_WeightHelper.Strafe(_rayDirection, strafeDir), CBS_WeightHelper.GoTowards(_rayDirection, _goalDirection), lerpValue);
         }

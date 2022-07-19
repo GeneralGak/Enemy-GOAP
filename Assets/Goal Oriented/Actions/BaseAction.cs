@@ -26,7 +26,7 @@ public abstract class BaseAction : MonoBehaviour
     
     protected abstract void Init();
 
-    public bool CanSatisfy(BaseGoal _goal)
+    public virtual bool CanSatisfy(BaseGoal _goal)
     {
         foreach (BaseGoal goal in satisfiableGoals)
         {

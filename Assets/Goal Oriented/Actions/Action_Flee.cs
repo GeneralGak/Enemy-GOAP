@@ -23,6 +23,7 @@ public class Action_Flee : BaseAction
     public override void Begin()
     {
         Navigation.StartMovement();
+        enemy.Animator.SetTrigger("DoWalk");
 
         base.Begin();
     }

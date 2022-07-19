@@ -48,7 +48,7 @@ public abstract class BaseFSMAction<T> : BaseAction
 
     protected virtual void OnEnter()
     {
-
+        
     }
 
     protected virtual void OnTick()
@@ -71,10 +71,14 @@ public abstract class BaseFSMAction<T> : BaseAction
         State = InitialState;
         HasFinished = false;
         StateMachine[State].OnEnter();        
+        
+        base.Begin();
     }
 
     public sealed override void End()
     {
         StateMachine[State].OnExit();
+
+        base.End();
     }    
 }
