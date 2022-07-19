@@ -15,9 +15,7 @@ public class AIVision : MonoBehaviour
 	private ITargetSorting targetSorting;
 	private bool breakLoop;
 
-	public UnityEvent VisionUpdateEvent;
-	public UnityEvent<GameObject> OnTargetSpotted;
-
+	public UnityEvent<GameObject> OnTargetSpotted { get; set; }
 	public List<GameObject> VisibleTargets { get { return visibleTargets; } }
 	public float ViewAngle { get { return viewAngle; } }
 	public float ViewRadius { get { return viewRadius; } }
@@ -27,17 +25,9 @@ public class AIVision : MonoBehaviour
 
 	private void OnEnable()
 	{
-		targetSorting = GetComponent<ITargetSorting>();
-
-		if (targetSorting == null)
-		{
-			Debug.LogError("No Target sorting script was found");
-		}
-		else
-		{
-			breakLoop = false;
-			StartCoroutine(FindTargetsWithDelay(CoroutineDelayTime));
-		}
+		targetSorting = new EnemyTargetSorting();
+		breakLoop = false;
+		StartCoroutine(FindTargetsWithDelay(CoroutineDelayTime));
 	}
 
 	/// <summary>
@@ -187,7 +177,6 @@ public class AIVision : MonoBehaviour
 		}
 
 		Target = tmpTarget;
-		VisionUpdateEvent?.Invoke();
 	}
 
 	public bool CheckIfTargetObstructed(Vector2 _directionToTarget, float _distanceToTarget)

@@ -4,27 +4,17 @@ using UnityEngine;
 
 public class Action_Flee : BaseAction
 {
-    protected override void Initialise()
+    protected override void Init()
     {
 
-    }
-
-    public override bool CanSatisfy(BaseGoal goal)
-    {
-        if(goal is Goal_TargetTooClose || goal is Goal_InAttackRange)
-		{
-            return true;
-		}
-
-        return false;
     }
 
     // TODO: Look into an easier way.
     public override float Cost()
     {
-        if(LinkedAIState.DistanceToTarget < LinkedAIState.AttackRange)
+        if(enemy.DistanceToTarget < enemy.Stats.attackRange)
 		{
-            return LinkedAIState.DistanceToTarget / LinkedAIState.AttackRange * 100f;
+            return enemy.DistanceToTarget / enemy.Stats.attackRange * 100f;
         }
 
         return 100f;
@@ -32,10 +22,9 @@ public class Action_Flee : BaseAction
 
     public override void Begin()
     {
-        Navigation.TransformGoal = LinkedAIState.Vision.Target.transform;
-        Navigation.UseTransformGoal = true;
-        Navigation.SetNewWeights(ContextBasedWeights.CBS_FleeWeight);
         Navigation.StartMovement();
+
+        base.Begin();
     }
 
     public override void Tick()
@@ -43,9 +32,13 @@ public class Action_Flee : BaseAction
 
     }
 
-    public override void Halt()
+    public override void End()
     {
-        Navigation.UseTransformGoal = false;
-        Navigation.TransformGoal = null;
+        base.End();
+    }
+
+    public override float GetWeight(Vector2 _rayDirection, Vector2 _goalDirection)
+    {
+        return CBS_WeightHelper.GoAway(_rayDirection, _goalDirection);
     }
 }

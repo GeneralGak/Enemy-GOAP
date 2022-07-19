@@ -4,14 +4,9 @@ using UnityEngine;
 
 public class Action_Chase : BaseAction
 {
-    protected override void Initialise()
+    protected override void Init()
     {
 
-    }
-
-    public override bool CanSatisfy(BaseGoal goal)
-    {
-        return goal is Goal_Chase;
     }
 
     public override float Cost()
@@ -21,20 +16,23 @@ public class Action_Chase : BaseAction
 
     public override void Begin()
     {
-        Navigation.TransformGoal = LinkedAIState.Vision.Target.transform;
-        Navigation.UseTransformGoal = true;
-        Navigation.SetNewWeights(ContextBasedWeights.CBS_ChaseWeight);
         Navigation.StartMovement();
+
+        base.Begin();
     }
 
     public override void Tick()
     {
-
+        Navigation.Destination = enemy.Vision.Target.transform.position;
     }
 
-    public override void Halt()
+    public override void End()
     {
-        Navigation.UseTransformGoal = false;
-        Navigation.TransformGoal = null;
+        base.End();
+    }
+
+    public override float GetWeight(Vector2 _rayDirection, Vector2 _goalDirection)
+    {
+        return CBS_WeightHelper.GoTowards(_rayDirection, _goalDirection);
     }
 }

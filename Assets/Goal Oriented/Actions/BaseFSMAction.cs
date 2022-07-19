@@ -73,7 +73,7 @@ public abstract class BaseFSMAction<T> : BaseAction
         StateMachine[State].OnEnter();        
     }
 
-    public sealed override void Halt()
+    public sealed override void End()
     {
         StateMachine[State].OnExit();
     }    

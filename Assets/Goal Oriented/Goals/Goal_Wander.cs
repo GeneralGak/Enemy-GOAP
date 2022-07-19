@@ -30,16 +30,16 @@ public class Goal_Wander : BaseGoal
         Priority = BasePriority;
     }
 
-    public override void Wakeup() 
+    public override void Activate() 
     { 
-        base.Wakeup();
+        base.Activate();
 
         ActionTime = 0f;
     }
 
-    public override void GoToSleep() 
+    public override void Deactivate() 
     { 
-        base.GoToSleep();
+        base.Deactivate();
 
         ActionTime = 0f;
     }

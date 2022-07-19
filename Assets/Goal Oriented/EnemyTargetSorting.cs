@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class EnemyTargetSorting : MonoBehaviour, ITargetSorting
+public class EnemyTargetSorting : ITargetSorting
 {
     /// <summary>
     /// Goes through a list of gameObjects to return a specific target
