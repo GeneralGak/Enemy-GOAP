@@ -22,6 +22,7 @@ public class EnemyMovement : MonoBehaviour
     float jumpDuration;
     float index;
 
+    public float CloseEnoughThresholdDistance { get; set; } = 0.05f;
     public bool UseCBS { get; set; } = true;
     public float MovementSpeed { get; set; } = 2f;
     public float MaxJumpLength { get; set; }
@@ -37,29 +38,67 @@ public class EnemyMovement : MonoBehaviour
     {
         if (move)
         {
-            Vector2 moveDir = targetPos;
-
-            if (followTarget)
-            {
-                moveDir = followTarget.position - transform.position;
-            }
-
-            if (UseCBS)
-            {
-                moveDir = cbs.GetDir(moveDir);
-            }
-
-            moveDir.Normalize();
-
-            rb.MovePosition(transform.position + (Vector3)(moveDir * MovementSpeed * Time.fixedDeltaTime));
+            Move();
         }
         else if (doJump)
         {
             elapsedJumpTime += Time.deltaTime;
-            rb.MovePosition(Vector2.Lerp(jumpStartPos, jumpTargetPos, elapsedJumpTime / jumpDuration));
             index += Time.deltaTime;
             float y = JumpHeight * Mathf.Sin(index * (Mathf.PI / jumpDuration));
-            //spriteObject.transform.position = transform.position + new Vector3(0, (y + hoverHeight / 2f) + hoverHeightOffset, 0);
+            
+            Vector2 pos = Vector2.Lerp(jumpStartPos, jumpTargetPos, elapsedJumpTime / jumpDuration);
+            
+            if(elapsedJumpTime < jumpDuration)
+            {
+                rb.MovePosition(new Vector2(pos.x, pos.y + y));
+            }
+            else
+            {
+                rb.MovePosition(pos);
+                doJump = false;
+            }
+        }
+    }
+
+    void Move()
+    {
+        Vector2 targetPosition;
+
+        if (followTarget)
+        {
+            targetPosition = followTarget.position;
+        }
+        else
+        {
+            targetPosition = targetPos;
+        }
+
+        Vector2 moveDir = targetPosition - (Vector2)transform.position;
+
+        if (UseCBS)
+        {
+            moveDir = cbs.GetDir(moveDir);
+        }
+
+        moveDir.Normalize();
+
+        rb.MovePosition(transform.position + (Vector3)(moveDir * MovementSpeed * Time.fixedDeltaTime));
+
+        float distToTarget;
+
+        if (followTarget)
+        {
+            distToTarget = Vector2.Distance(followTarget.transform.position, transform.position);
+        }
+        else
+        {
+            distToTarget = Vector2.Distance(targetPos, transform.position);
+        }
+
+        if(distToTarget < CloseEnoughThresholdDistance)
+        {
+            rb.MovePosition(targetPosition);
+            move = false;
         }
     }
 
