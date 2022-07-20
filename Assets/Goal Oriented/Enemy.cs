@@ -23,6 +23,10 @@ public class Enemy : MonoBehaviour
     public AnimationEventHandler AnimEventHandler { get; private set; }
     public GameObject Target { get { return Vision.Target; } }
     public SO_EnemyStats Stats { get { return stats; } }
+    public ContextBasedSteeringBehavior CBS { get; private set; }
+    public GOAPBrain Brain { get; private set; }
+    public EnemyMovement Movement { get; private set; }
+    public GameObject SpriteObject { get; private set; }
 
     public float DistanceToTarget
     {
@@ -44,5 +48,9 @@ public class Enemy : MonoBehaviour
 		Vision = GetComponent<AIVision>();
         Animator = GetComponentInChildren<Animator>();
         AnimEventHandler = GetComponentInChildren<AnimationEventHandler>();
+        CBS = GetComponent<ContextBasedSteeringBehavior>();
+        Brain = GetComponentInChildren<GOAPBrain>();
+        Movement = GetComponent<EnemyMovement>();
+        SpriteObject = GetComponentInChildren<AnimationEventHandler>().gameObject;
     }
 }

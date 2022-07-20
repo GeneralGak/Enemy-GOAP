@@ -43,8 +43,8 @@ public class Action_AttackMelee : BaseFSMAction<Action_AttackMelee.AttackState>
                 elapsedTime = 0;
                 //enemy.elapsedTime = 0;
                 enemy.Animator.SetTrigger("DoWindup");
-                Navigation.StartMovement();
-                Navigation.Destination = (transform.position - enemy.Target.transform.position).normalized * windupDistance;
+                //enemy.CBS.StartMovement();
+                //enemy.CBS.Destination = (transform.position - enemy.Target.transform.position).normalized * windupDistance;
                 break;
 
             case AttackState.DashForward:
@@ -52,7 +52,7 @@ public class Action_AttackMelee : BaseFSMAction<Action_AttackMelee.AttackState>
                 enemy.AnimEventHandler.onAttack.AddListener(SpawnHitbox);
                 enemy.AnimEventHandler.onAttackDone.AddListener(AttackDone);
                 Vector2 dirToTarget = enemy.Target.transform.position - transform.position;
-                Navigation.Destination = dirToTarget - dirToTarget.normalized * dashStopDistanceFromPlayer;
+                //enemy.CBS.Destination = dirToTarget - dirToTarget.normalized * dashStopDistanceFromPlayer;
                 break;
         }
     }
@@ -88,7 +88,7 @@ public class Action_AttackMelee : BaseFSMAction<Action_AttackMelee.AttackState>
     void SpawnHitbox()
     {
         enemy.AnimEventHandler.onAttack.RemoveListener(SpawnHitbox);
-        Debug.Log("Hit!");
+        //Debug.Log("Hit!");
     }
 
     void AttackDone()

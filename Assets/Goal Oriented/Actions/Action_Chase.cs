@@ -16,19 +16,21 @@ public class Action_Chase : BaseAction
 
     public override void Begin()
     {
-        Navigation.StartMovement();
         enemy.Animator.SetTrigger("DoWalk");
+        enemy.Movement.FollowTarget(enemy.Target.transform);
 
         base.Begin();
     }
 
     public override void Tick()
     {
-        Navigation.Destination = enemy.Vision.Target.transform.position;
+
     }
 
     public override void End()
     {
+        enemy.Movement.StopMovement();
+        
         base.End();
     }
 

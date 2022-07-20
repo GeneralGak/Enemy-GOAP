@@ -6,17 +6,13 @@ public abstract class BaseAction : MonoBehaviour
 {
     [SerializeField] List<BaseGoal> satisfiableGoals = new List<BaseGoal>();
 
-    protected ContextBasedSteeringBehavior Navigation;
     protected Enemy enemy;
-    protected GOAPBrain brain;
 
     public bool HasFinished { get; protected set; } = false;
 
     void Awake()
     {
-        Navigation = GetComponentInParent<ContextBasedSteeringBehavior>();
         enemy = GetComponentInParent<Enemy>();
-        brain = GetComponentInParent<GOAPBrain>();
     }
 
     void Start()
@@ -42,13 +38,13 @@ public abstract class BaseAction : MonoBehaviour
 
     public virtual void Begin()
     {
-        Navigation.CurrentAction = this;
+        enemy.CBS.CurrentAction = this;
     }
 
     public abstract void Tick();
     public virtual void End()
     {
-        Navigation.CurrentAction = null;
+        enemy.CBS.CurrentAction = null;
     }
 
     public virtual float GetWeight(Vector2 _rayDirection, Vector2 _goalDirection)

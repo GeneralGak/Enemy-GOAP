@@ -25,26 +25,27 @@ public class Action_Wander : BaseAction
 
     public override void Begin()
     {
-        Navigation.StartMovement();
-        Navigation.Destination = spawnPos;
         enemy.Animator.SetTrigger("DoWalk");
+        enemy.Movement.MoveToPosition(spawnPos);
 
         base.Begin();
     }
 
     public override void Tick()
     {
-        
+
     }
 
     public override void End()
     {
+        enemy.Movement.StopMovement();
+
         base.End();
     }
 
     private Vector2 CalculateWanderDir()
     {
-        Vector2 wanderDir = Navigation.Velocity;
+        Vector2 wanderDir = enemy.CBS.Velocity;
         wanderDir.Normalize();
         wanderDir *= CIRCLE_DISTANCE;
 
@@ -63,7 +64,6 @@ public class Action_Wander : BaseAction
     public override float GetWeight(Vector2 _rayDirection, Vector2 _goalDirection)
     {
         float lerpValue = (Vector2.Distance(spawnPos, transform.position) - wanderCircleRadius * lerpDistance) / wanderCircleRadius * lerpDistance;
-        lerpValue = Mathf.Clamp(lerpValue, 0, 1);
         Vector2 goalDir = Vector2.Lerp(CalculateWanderDir(), _goalDirection, lerpValue);
         return CBS_WeightHelper.GoTowards(_rayDirection, goalDir);
     }

@@ -16,7 +16,6 @@ public class Action_Idle : BaseAction
 
     public override void Begin()
     {
-        Navigation.StopMovement();
         enemy.Animator.SetTrigger("DoIdle");
 
         base.Begin();
