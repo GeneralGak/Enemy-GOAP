@@ -4,17 +4,23 @@ using UnityEngine;
 
 public class Enemy : MonoBehaviour
 {
+    // ************* //
     // TODO: REMOVE THIS
     public float attackCooldown;
-    public SpriteRenderer spriteObject;
+    [SerializeField] SpriteRenderer spriteObject;
     [HideInInspector] public float elapsedTime;
+
+    private void Start()
+    {
+
+    }
 
     private void Update()
     {
         elapsedTime += Time.deltaTime;
-        if(Target) spriteObject.flipX = Target.transform.position.x < transform.position.x;
+        if(Target) spriteObject.flipX = Movement.MoveDir.x < 0;
     }
-
+    // ************* //
 
     [SerializeField] SO_EnemyStats stats;
 

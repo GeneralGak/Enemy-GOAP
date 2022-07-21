@@ -7,6 +7,7 @@ public abstract class BaseGoal : MonoBehaviour
     public const int MaxPriority = 100;
     
     public bool CanRun { get; protected set; } = false;
+    public bool CommitTo { get; protected set; } = false;
     public int Priority { get; protected set; } = 0;
     public bool IsActive { get; protected set; } = false;
 

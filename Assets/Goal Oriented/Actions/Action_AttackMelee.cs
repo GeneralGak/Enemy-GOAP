@@ -6,15 +6,19 @@ public class Action_AttackMelee : BaseFSMAction<Action_AttackMelee.AttackState>
 {
     float elapsedTime;
     bool attackDone;
-    [SerializeField] float windupTime;
-    [SerializeField] float windupDistance;
-    [SerializeField] float dashStopDistanceFromPlayer;
+    [SerializeField] float windupTime = 0.5f;
+    [SerializeField] float windupDistance = 0.3f;
+    [SerializeField] float dashStopDistanceFromPlayer = 0.6f;
+    [SerializeField] float windupJumpHeight = 0.1f;
+    [SerializeField] float windupJumpDuration = 0.2f;
+    [SerializeField] float dashHeight = 0.4f;
+    [SerializeField] float dashDuration = 0.2f;
+    [SerializeField] float maxDashLength = 3f;
 
     public enum AttackState
     {
         Windup,
-        DashForward,
-        MoveBack
+        DashForward
     }
 
     public override bool CanSatisfy(BaseGoal _goal)
@@ -31,7 +35,6 @@ public class Action_AttackMelee : BaseFSMAction<Action_AttackMelee.AttackState>
     {
         AddState(AttackState.Windup);
         AddState(AttackState.DashForward);
-        AddState(AttackState.MoveBack);
     }
 
     protected override void OnEnter()
@@ -40,11 +43,11 @@ public class Action_AttackMelee : BaseFSMAction<Action_AttackMelee.AttackState>
         {
             case AttackState.Windup:
                 attackDone = false;
-                elapsedTime = 0;
-                //enemy.elapsedTime = 0;
+                enemy.elapsedTime = 0;
                 enemy.Animator.SetTrigger("DoWindup");
-                //enemy.CBS.StartMovement();
-                //enemy.CBS.Destination = (transform.position - enemy.Target.transform.position).normalized * windupDistance;
+                enemy.Movement.MoveDir = enemy.Target.transform.position - transform.position;
+                Vector2 jumpVelocity = (transform.position - enemy.Target.transform.position).normalized * windupDistance;
+                enemy.Movement.JumpToPosition((Vector2)transform.position + jumpVelocity, windupJumpHeight, windupJumpDuration);
                 break;
 
             case AttackState.DashForward:
@@ -52,7 +55,9 @@ public class Action_AttackMelee : BaseFSMAction<Action_AttackMelee.AttackState>
                 enemy.AnimEventHandler.onAttack.AddListener(SpawnHitbox);
                 enemy.AnimEventHandler.onAttackDone.AddListener(AttackDone);
                 Vector2 dirToTarget = enemy.Target.transform.position - transform.position;
-                //enemy.CBS.Destination = dirToTarget - dirToTarget.normalized * dashStopDistanceFromPlayer;
+                Vector2 jumpVelocity_ = dirToTarget - dirToTarget.normalized * dashStopDistanceFromPlayer;
+                if(jumpVelocity_.magnitude > maxDashLength) { jumpVelocity_ = jumpVelocity_.normalized * maxDashLength; }
+                enemy.Movement.JumpToPosition((Vector2)transform.position + jumpVelocity_, dashHeight, dashDuration);
                 break;
         }
     }
@@ -77,6 +82,7 @@ public class Action_AttackMelee : BaseFSMAction<Action_AttackMelee.AttackState>
                 if (attackDone)
                 {
                     enemy.elapsedTime = 0;
+                    elapsedTime = 0;
                     HasFinished = true;
                 }
                 break;

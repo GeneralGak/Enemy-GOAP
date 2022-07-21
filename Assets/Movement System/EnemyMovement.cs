@@ -10,7 +10,7 @@ public enum MovementType
 
 public class EnemyMovement : MonoBehaviour
 {
-    ContextBasedSteeringBehavior cbs;
+    Enemy enemy;
     Rigidbody2D rb;
     bool move;
     bool doJump;
@@ -26,11 +26,12 @@ public class EnemyMovement : MonoBehaviour
     public bool UseCBS { get; set; } = true;
     public float MovementSpeed { get; set; } = 2f;
     public float MaxJumpLength { get; set; }
-    public float JumpHeight { get; set; }
+    public float JumpHeight { get; set; } = 1f;
+    public Vector2 MoveDir { get; set; }
 
     private void Awake()
     {
-        cbs = GetComponent<ContextBasedSteeringBehavior>();
+        enemy = GetComponent<Enemy>();
         rb = GetComponent<Rigidbody2D>();
     }
 
@@ -48,13 +49,15 @@ public class EnemyMovement : MonoBehaviour
             
             Vector2 pos = Vector2.Lerp(jumpStartPos, jumpTargetPos, elapsedJumpTime / jumpDuration);
             
+            rb.MovePosition(pos);
+            
             if(elapsedJumpTime < jumpDuration)
             {
-                rb.MovePosition(new Vector2(pos.x, pos.y + y));
+                enemy.SpriteObject.transform.localPosition = new Vector3(0, y);
             }
             else
             {
-                rb.MovePosition(pos);
+                enemy.SpriteObject.transform.localPosition = Vector3.zero;
                 doJump = false;
             }
         }
@@ -73,16 +76,16 @@ public class EnemyMovement : MonoBehaviour
             targetPosition = targetPos;
         }
 
-        Vector2 moveDir = targetPosition - (Vector2)transform.position;
+        MoveDir = targetPosition - (Vector2)transform.position;
 
         if (UseCBS)
         {
-            moveDir = cbs.GetDir(moveDir);
+            MoveDir = enemy.CBS.GetDir(MoveDir);
         }
 
-        moveDir.Normalize();
+        MoveDir.Normalize();
 
-        rb.MovePosition(transform.position + (Vector3)(moveDir * MovementSpeed * Time.fixedDeltaTime));
+        rb.MovePosition(transform.position + (Vector3)(MoveDir * MovementSpeed * Time.fixedDeltaTime));
 
         float distToTarget;
 
@@ -129,9 +132,11 @@ public class EnemyMovement : MonoBehaviour
     {
         doJump = true;
         elapsedJumpTime = 0;
+        index = 0;
         jumpStartPos = transform.position;
         jumpTargetPos = _targetPos;
         jumpDuration = _jumpDuration;
+        JumpHeight = _jumpHeight;
     }
 
     public void StopMovement()

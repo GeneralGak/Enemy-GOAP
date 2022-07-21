@@ -43,7 +43,8 @@ public class GOAPBrain : MonoBehaviour
         for (int goalIndex = 0; goalIndex < Goals.Length; ++goalIndex)
             Goals[goalIndex].PreTick();
 
-        RefreshPlan();
+        if ((ActiveGoal && !ActiveGoal.CommitTo) || !ActiveGoal) 
+            RefreshPlan();
 
         if (ActiveGoal)
         {
