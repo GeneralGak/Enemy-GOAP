@@ -14,6 +14,7 @@ public class AIVision : MonoBehaviour
 	private List<GameObject> visibleTargets = new List<GameObject>();
 	private ITargetSorting targetSorting;
 	private bool breakLoop;
+	private AwarenessSystem awarenesSystem;
 
 	public UnityEvent VisionUpdateEvent;
 	public UnityEvent<GameObject> OnTargetSpotted;
