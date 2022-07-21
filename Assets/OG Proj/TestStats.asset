@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9d4f9c610672be4a815d80afe389f52, type: 3}
+  m_Name: TestStats
+  m_EditorClassIdentifier: 
+  enemyName: 
+  maxHealth: 3
+  currencyDropAmount: 1
+  speed: 0.5
+  chaseSpeed: 1.5
+  moveAwayFromPlayerDistance: 0.4
+  maxRandomDistanceAdder: 0.2
+  accelerationTime: 1
+  attackWindUpTime: 0.4
+  wanderRadius: 0.7
+  searchRadius: 1
+  viewRadius: 1
+  alertViewRadius: 1.5
+  turnSpeed: 200
+  viewAngle: 150
+  targetMask:
+    serializedVersion: 2
+    m_Bits: 0
+  obstacleMask:
+    serializedVersion: 2
+    m_Bits: 0
+  baseStateMachine: {fileID: 0}
+  arenaStateMachine: {fileID: 0}
+  attackRange: 3
+  distanceFromDestination: 0
+  idleTime: 0
+  loseTargetTime: 0
+  searchTime: 0

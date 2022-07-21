@@ -2,15 +2,15 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Goal_InAttackRange : BaseGoal
+public class Goal_StrafeTarget : BaseGoal
 {
     [SerializeField] private int basePriority = 35;
 
     public override void PreTick()
     {
-        if(enemy.DistanceToTarget >= 0)
+        if(enemy.Target)
 		{
-            CanRun = enemy.DistanceToTarget <= enemy.Stats.attackRange;
+            CanRun = enemy.DistanceToTarget <= enemy.Stats.attackRange * 2f;
         }
         else
 		{

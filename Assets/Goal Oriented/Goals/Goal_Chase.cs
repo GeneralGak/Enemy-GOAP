@@ -8,7 +8,7 @@ public class Goal_Chase : BaseGoal
 
     public override void PreTick()
     {
-        CanRun = LinkedAIState.Target != null;
+        CanRun = enemy.Target != null;
 
         Priority = BasePriority;
     }

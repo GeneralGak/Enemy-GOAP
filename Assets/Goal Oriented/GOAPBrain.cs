@@ -45,14 +45,14 @@ public class GOAPBrain : MonoBehaviour
 
         RefreshPlan();
 
-        if (ActiveGoal != null)
+        if (ActiveGoal)
         {
             ActiveGoal.Tick();
 
             // if action finished - cleanup the goal
             if (ActiveAction.HasFinished)
             {
-                ActiveGoal.GoToSleep();
+                ActiveGoal.Deactivate();
                 ActiveGoal = null;
                 ActiveAction = null;
             }
@@ -109,7 +109,7 @@ public class GOAPBrain : MonoBehaviour
         if (bestGoal == null)
         {
             if (ActiveGoal != null)
-                ActiveGoal.GoToSleep();
+                ActiveGoal.Deactivate();
 
             ActiveGoal = null;
             ActiveAction = null;
@@ -120,9 +120,9 @@ public class GOAPBrain : MonoBehaviour
         if (bestGoal != ActiveGoal)
         {
             if (ActiveGoal != null)
-                ActiveGoal.GoToSleep();
+                ActiveGoal.Deactivate();
 
-            bestGoal.Wakeup();
+            bestGoal.Activate();
         }
 
         // start the action

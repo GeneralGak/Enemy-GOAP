@@ -11,23 +11,23 @@ public abstract class BaseGoal : MonoBehaviour
     public bool IsActive { get; protected set; } = false;
 
     protected BaseAction LinkedAction;
-    protected AIState LinkedAIState;
-    protected GOAPBrain LinkedBrain;
+    protected Enemy enemy;
+    protected GOAPBrain brain;
 
     void Awake()
     {
-        LinkedAIState = GetComponentInParent<AIState>();
-        LinkedBrain = GetComponentInParent<GOAPBrain>();
+        enemy = GetComponentInParent<Enemy>();
+        brain = GetComponentInParent<GOAPBrain>();
     }
 
-    public virtual void Wakeup() 
+    public virtual void Activate() 
     {
         IsActive = true;
     }
 
-    public virtual void GoToSleep() 
+    public virtual void Deactivate() 
     {
-        LinkedAction.Halt();
+        LinkedAction.End();
 
         IsActive = false;
     }
@@ -39,6 +39,9 @@ public abstract class BaseGoal : MonoBehaviour
         LinkedAction.Begin();
     }
 
+    /// <summary>
+    /// Used to set CanRun and Priority before choosing goal
+    /// </summary>
     public abstract void PreTick();
 
     public void Tick()

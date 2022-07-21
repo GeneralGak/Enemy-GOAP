@@ -9,9 +9,9 @@ public class Goal_TargetTooClose : BaseGoal
 
     public override void PreTick()
     {
-        if (LinkedAIState.DistanceToTarget >= 0)
+        if (enemy.DistanceToTarget >= 0)
         {
-            CanRun = LinkedAIState.DistanceToTarget <= fleeRange;
+            CanRun = enemy.DistanceToTarget <= fleeRange;
         }
         else
         {

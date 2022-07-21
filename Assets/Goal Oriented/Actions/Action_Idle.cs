@@ -4,14 +4,9 @@ using UnityEngine;
 
 public class Action_Idle : BaseAction
 {
-    protected override void Initialise()
+    protected override void Init()
     {
 
-    }
-
-    public override bool CanSatisfy(BaseGoal goal)
-    {
-        return goal is Goal_Idle;
     }
 
     public override float Cost()
@@ -21,15 +16,18 @@ public class Action_Idle : BaseAction
 
     public override void Begin()
     {
-        Navigation.StopMovement();
+        enemy.Animator.SetTrigger("DoIdle");
+
+        base.Begin();
     }
 
     public override void Tick()
     {
+
     }
 
-    public override void Halt()
+    public override void End()
     {
-
-    }    
+        base.End();
+    }
 }

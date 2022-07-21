@@ -2,67 +2,69 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Action_Wander : BaseFSMAction<Action_Wander.EState>
+public class Action_Wander : BaseAction
 {
-	[SerializeField] private float maxWanderRange = 3f;
-	[SerializeField] private float minWanderRange = 1.5f;
+    [SerializeField] private float wanderCircleRadius;
+    [SerializeField, Range(0, 1)] private float lerpDistance = 0.5f;
 
-    private Vector2 spawnLocation;
-    private bool returnToLocation;
-
-	public enum EState
-	{
-		WanderLocation,
-		MoveBack
-	}
-
-	public override bool CanSatisfy(BaseGoal goal)
-	{
-		return goal is Goal_Wander;
-	}
+    private const float CIRCLE_DISTANCE = 1.5f;
+    private const float ANGLE_CHANGE = 0.08f;
+    private float wanderAngle;
+    private Vector2 displacement;
+    private Vector2 spawnPos;
 
 	public override float Cost()
 	{
 		return 0f;
 	}
 
-    protected override void Initialise()
+    protected override void Init()
     {
-        AddState(EState.WanderLocation, OnEnter_WanderLocation, OnTick_WanderLocation, null, CheckTransition_WanderLocation);
-        AddState(EState.MoveBack, OnEnter_MoveBack, OnTick_MoveBack, null, CheckTransition_MoveBack);
-        spawnLocation = transform.position;
+        spawnPos = transform.position;
     }
 
-    void OnEnter_MoveBack()
+    public override void Begin()
     {
-        Navigation.VectorGoal = spawnLocation;
-        Navigation.SetNewWeights(ContextBasedWeights.CBS_ChaseWeight);
+        enemy.Animator.SetTrigger("DoWalk");
+        enemy.Movement.MoveToPosition(spawnPos);
+
+        base.Begin();
     }
 
-    void OnTick_MoveBack()
-	{
-        returnToLocation = Vector2.Distance(spawnLocation, transform.position) >= minWanderRange;
+    public override void Tick()
+    {
+
     }
 
-    EState CheckTransition_MoveBack()
+    public override void End()
     {
-        return returnToLocation ? EState.MoveBack : EState.WanderLocation;
+        enemy.Movement.StopMovement();
+
+        base.End();
     }
 
-    void OnEnter_WanderLocation()
+    private Vector2 CalculateWanderDir()
     {
-        Navigation.StartMovement();
-        Navigation.UseTransformGoal = false;
-        Navigation.SetNewWeights(ContextBasedWeights.CBS_Wander);
+        Vector2 wanderDir = enemy.CBS.Velocity;
+        wanderDir.Normalize();
+        wanderDir *= CIRCLE_DISTANCE;
+
+        displacement = new Vector2(0, -1);
+        displacement *= wanderCircleRadius;
+
+        wanderAngle += Random.value * ANGLE_CHANGE - ANGLE_CHANGE * 0.5f;
+
+        float vectorLength = displacement.magnitude;
+        displacement = new Vector2(Mathf.Cos(wanderAngle) * vectorLength, Mathf.Sin(wanderAngle) * vectorLength);
+
+        wanderDir += displacement;
+        return wanderDir;
     }
 
-    void OnTick_WanderLocation()
+    public override float GetWeight(Vector2 _rayDirection, Vector2 _goalDirection)
     {
-        returnToLocation = Vector2.Distance(spawnLocation, transform.position) >= maxWanderRange;
-    }
-
-    EState CheckTransition_WanderLocation()
-    {
-        return returnToLocation ? EState.MoveBack : EState.WanderLocation;
+        float lerpValue = (Vector2.Distance(spawnPos, transform.position) - wanderCircleRadius * lerpDistance) / wanderCircleRadius * lerpDistance;
+        Vector2 goalDir = Vector2.Lerp(CalculateWanderDir(), _goalDirection, lerpValue);
+        return CBS_WeightHelper.GoTowards(_rayDirection, goalDir);
     }
 }
