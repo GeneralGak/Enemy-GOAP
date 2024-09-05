@@ -208,4 +208,13 @@ public static class Helper
 		else if(_value < 0) { result = _listSize - 1; }
 		return result;
     }
+
+	public static float Vector2ToAngle(Vector2 _vector2)
+	{
+		float angle = Vector2.SignedAngle(Vector2.right, _vector2);
+		if (_vector2.y < 0) angle = Mathf.Abs(angle);
+		else if (_vector2.y >= 0) angle = 360 - angle;
+
+		return angle;
+	}
 }

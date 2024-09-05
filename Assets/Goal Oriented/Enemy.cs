@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class Enemy : MonoBehaviour
@@ -18,39 +16,34 @@ public class Enemy : MonoBehaviour
 
     [SerializeField] SO_EnemyStats stats;
 
-    public AIVision Vision { get; private set; }
+	public EnemyAwareness Awareness { get; private set; }
+	public AIVision Vision { get; private set; }
     public Animator Animator { get; private set; }
     public AnimationEventHandler AnimEventHandler { get; private set; }
-    public GameObject Target { get { return Vision.Target; } }
+    public GameObject Target { get { return Awareness.FocusedTarget; } }
     public SO_EnemyStats Stats { get { return stats; } }
-    public ContextBasedSteeringBehavior CBS { get; private set; }
     public GOAPBrain Brain { get; private set; }
     public EnemyMovement Movement { get; private set; }
-    public GameObject SpriteObject { get; private set; }
+    public SpriteRenderer SpriteRenderer { get; private set; }
+	public DamageReceiver DamageReceiver { get; protected set; }
+	public AISteering Steering { get; private set; }
+	public Aiming Aiming { get; private set; }
+	public float DistanceToTarget { get { return Awareness.FocusTargetDistance; } }
+	public Vector2 WanderCenter { get; set; }
 
-    public float DistanceToTarget
-    {
-        get
-        {
-            if (Target) 
-            { 
-                return Vector2.Distance(transform.position, Target.transform.position); 
-            }
-            else 
-            { 
-                return -1; 
-            }
-        }
-    }
 
-    private void Awake()
+	private void Awake()
 	{
-		Vision = GetComponent<AIVision>();
-        Animator = GetComponentInChildren<Animator>();
-        AnimEventHandler = GetComponentInChildren<AnimationEventHandler>();
-        CBS = GetComponent<ContextBasedSteeringBehavior>();
-        Brain = GetComponentInChildren<GOAPBrain>();
+		Vision = GetComponentInChildren<AIVision>();
+		DamageReceiver = GetComponent<DamageReceiver>();
+		Aiming = GetComponent<Aiming>();
+		Awareness = GetComponent<EnemyAwareness>();
         Movement = GetComponent<EnemyMovement>();
-        SpriteObject = GetComponentInChildren<AnimationEventHandler>().gameObject;
+		Steering = GetComponent<AISteering>();
+        Animator = GetComponentInChildren<Animator>();
+        AnimEventHandler = Animator.GetComponent<AnimationEventHandler>();
+		SpriteRenderer = AnimEventHandler.GetComponent<SpriteRenderer>();
+        Brain = GetComponentInChildren<GOAPBrain>();
+        WanderCenter = transform.position;
     }
 }

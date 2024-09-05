@@ -1,6 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 
 public enum MovementType
 {
@@ -10,132 +9,283 @@ public enum MovementType
 
 public class EnemyMovement : MonoBehaviour
 {
-    ContextBasedSteeringBehavior cbs;
-    Rigidbody2D rb;
-    bool move;
-    bool doJump;
-    Transform followTarget;
-    Vector2 targetPos;
-    Vector2 jumpTargetPos;
-    Vector2 jumpStartPos;
-    float elapsedJumpTime;
-    float jumpDuration;
-    float index;
+	[SerializeField] private float stuckCheckDistance = 0.005f;
+	[SerializeField] private float stuckDeathTimer = 10f;
+	[SerializeField] private ContactFilter2D contactFilter;
 
-    public float CloseEnoughThresholdDistance { get; set; } = 0.05f;
-    public bool UseCBS { get; set; } = true;
-    public float MovementSpeed { get; set; } = 2f;
-    public float MaxJumpLength { get; set; }
-    public float JumpHeight { get; set; }
+	Enemy enemy;
+	Rigidbody2D rb;
+	bool move;
+	bool ignoreDistanceToTarget;
+	bool doJump;
+	bool jumpDone = true;
+	bool ignoreCBS;
+	Transform followTarget;
+	Vector2 moveDirection;
+	Vector2 targetPos;
+	Vector2 jumpTargetPos;
+	Vector2 jumpVelocity;
+	Vector2 prevPosition;
+	Vector2 previousDirection;
+	Vector2 StuckMoveDir;
+	float elapsedJumpTime;
+	float elapsedDeathTime;
+	float elapsedStuckTime;
+	float jumpDuration;
+	float jumpHeight;
+	float index;
+	float maxStuckTime = 0.3f;
+	float maxUnstuckTime = 1.5f;
+	float initialCrossProduct;
+	string animationName;
 
-    private void Awake()
-    {
-        cbs = GetComponent<ContextBasedSteeringBehavior>();
-        rb = GetComponent<Rigidbody2D>();
-    }
+	AnimationEventHandler animationEventHandler;
+	float animationjumpDuration = 0.5f;
+	UnityAction onMoveDoneCallback;
+	Vector2 spineSpritePosition;
 
-    private void FixedUpdate()
-    {
-        if (move)
-        {
-            Move();
-        }
-        else if (doJump)
-        {
-            elapsedJumpTime += Time.deltaTime;
-            index += Time.deltaTime;
-            float y = JumpHeight * Mathf.Sin(index * (Mathf.PI / jumpDuration));
-            
-            Vector2 pos = Vector2.Lerp(jumpStartPos, jumpTargetPos, elapsedJumpTime / jumpDuration);
-            
-            if(elapsedJumpTime < jumpDuration)
-            {
-                rb.MovePosition(new Vector2(pos.x, pos.y + y));
-            }
-            else
-            {
-                rb.MovePosition(pos);
-                doJump = false;
-            }
-        }
-    }
+	const int DEFAULT_FRAMERATE = 12;
+	const float CLOSE_ENOUGH_DISTANCE_THRESHOLD = 0.012f;
 
-    void Move()
-    {
-        Vector2 targetPosition;
+	public bool IsMoving { get { return move; } }
+	public bool UseCBS { get; set; } = true;
+	public bool IsStuck { get; private set; }
+	public bool JumpDone { get { return jumpDone && !doJump; } }
+	public bool JumpInitiated { get; private set; }
+	public bool JumpOnEvent { get; set; } = true;
+	public bool IgnoreCollidersOnJump { get; set; } = false;
+	public float MaxJumpLength { get; set; }
+	public float Speed { get; set; }
+	public float SpeedMultiplier { get; set; } = 1;
+	public float SteerForce { get; set; } = 0.8f;
+	public float MaxStuckTime { get { return maxStuckTime; } set { maxStuckTime = value; } }
+	public Vector2 MoveDir { get; set; }
+	public Vector2 DesiredVelocity { get; private set; }
+	public Vector2 Velocity { get; private set; }
+	public Vector2 KnockbackVelocity { get; set; }
+	public UnityEvent UpdateKnockbackVelocity { get; set; } = new UnityEvent();
+	public UnityEvent OnJumpStart { get; set; } = new UnityEvent();
+	public Rigidbody2D Rigidbody { get { return rb; } }
 
-        if (followTarget)
-        {
-            targetPosition = followTarget.position;
-        }
-        else
-        {
-            targetPosition = targetPos;
-        }
+	private void Awake()
+	{
+		enemy = GetComponent<Enemy>();
+		rb = GetComponent<Rigidbody2D>();
+		animationEventHandler = GetComponentInChildren<AnimationEventHandler>();
+		prevPosition = transform.position;
+	}
 
-        Vector2 moveDir = targetPosition - (Vector2)transform.position;
+	private void Start()
+	{
+		if (!enemy.Steering)
+		{
+			UseCBS = false;
+		}
+	}
 
-        if (UseCBS)
-        {
-            moveDir = cbs.GetDir(moveDir);
-        }
+	private void FixedUpdate()
+	{
+		if (move)
+		{
+			Move();
 
-        moveDir.Normalize();
+			if (!IsStuck)
+			{
+				CheckIfStuck();
+			}
+			else
+			{
+				CheckIfUnstuck();
+			}
+		}
+	}
 
-        rb.MovePosition(transform.position + (Vector3)(moveDir * MovementSpeed * Time.fixedDeltaTime));
+	void Move()
+	{
+		Vector2 targetPosition = Vector2.zero;
 
-        float distToTarget;
+		if (moveDirection == Vector2.zero)
+		{
+			if (followTarget)
+			{
+				targetPosition = followTarget.position;
+			}
+			else
+			{
+				targetPosition = targetPos;
+			}
 
-        if (followTarget)
-        {
-            distToTarget = Vector2.Distance(followTarget.transform.position, transform.position);
-        }
-        else
-        {
-            distToTarget = Vector2.Distance(targetPos, transform.position);
-        }
+			MoveDir = targetPosition - (Vector2)transform.position;
+		}
+		else
+		{
+			MoveDir = moveDirection;
+		}
 
-        if(distToTarget < CloseEnoughThresholdDistance)
-        {
-            rb.MovePosition(targetPosition);
-            move = false;
-        }
-    }
+		if (!ignoreCBS && UseCBS)
+		{
+			MoveDir = enemy.Steering.CBS.GetDir(MoveDir);
+		}
+		//      else if(!ignoreCBS && UseCBS)
+		//{
+		//          MoveDir = StuckMoveDir;
+		//      }
 
-    public void MoveToPosition(Vector2 _targetPos)
-    {
-        move = true;
-        followTarget = null;
-        targetPos = _targetPos;
-    }
+		DesiredVelocity = MoveDir.normalized * (Speed * SpeedMultiplier);
+		Velocity = Vector2.Lerp(Velocity, DesiredVelocity, SteerForce);
 
-    public void FollowTarget(Transform _followTarget)
-    {
-        move = true;
-        followTarget = _followTarget; 
-    }
+		rb.MovePosition((Vector2)transform.position + (Velocity * Time.fixedDeltaTime));
 
-    public void WalkTowards(Vector2 _targetPos)
-    {
-        WalkInDirection(_targetPos - (Vector2)transform.position);
-    }
+		float distToTarget;
+		Vector2 directionToPoint;
 
-    public void WalkInDirection(Vector2 _dir)
-    {
-        
-    }
+		if (moveDirection == Vector2.zero)
+		{
+			float currentCrossProduct;
 
-    public void JumpToPosition(Vector2 _targetPos, float _jumpHeight, float _jumpDuration)
-    {
-        doJump = true;
-        elapsedJumpTime = 0;
-        jumpStartPos = transform.position;
-        jumpTargetPos = _targetPos;
-        jumpDuration = _jumpDuration;
-    }
+			if (followTarget)
+			{
+				//distToTarget = Vector2.Distance(followTarget.transform.position, transform.position);
+				directionToPoint = followTarget.transform.position - transform.position;
 
-    public void StopMovement()
-    {
-        move = false;
-    }
+				//currentCrossProduct = followTarget.transform.position.x * aiBase.transform.position.y - followTarget.transform.position.y * aiBase.transform.position.x;
+			}
+			else
+			{
+				//distToTarget = Vector2.Distance(targetPos, transform.position);
+				directionToPoint = targetPos - (Vector2)transform.position;
+
+				//currentCrossProduct = targetPos.x * aiBase.transform.position.y - targetPos.y * aiBase.transform.position.x;
+			}
+
+			if (!ignoreDistanceToTarget && (directionToPoint.magnitude < CLOSE_ENOUGH_DISTANCE_THRESHOLD || (previousDirection != Vector2.zero && Vector2.Angle(directionToPoint, previousDirection) > 180)))
+			{
+				MoveDone(targetPosition);
+			}
+			else previousDirection = directionToPoint;
+			//if (!ignoreDistanceToTarget && Mathf.Sign(initialCrossProduct) != Mathf.Sign(currentCrossProduct))
+			//         {
+			//             MoveDone(targetPosition);
+			//         }
+		}
+
+		//Debug.Log("Move Velocity: " + Velocity);
+
+	}
+
+	void MoveDone(Vector2 _targetPos)
+	{
+		rb.MovePosition(_targetPos);
+		move = false;
+
+		if (onMoveDoneCallback != null)
+		{
+			onMoveDoneCallback.Invoke();
+			onMoveDoneCallback = null;
+		}
+	}
+
+	public void MoveToPosition(Vector2 _targetPos, bool _ignoreDistanceToTarget = false, UnityAction _onMoveDoneCallback = null, bool _ignoreCBS = false)
+	{
+		move = true;
+		followTarget = null;
+		moveDirection = Vector2.zero;
+		targetPos = _targetPos;
+		ignoreDistanceToTarget = _ignoreDistanceToTarget;
+		onMoveDoneCallback = _onMoveDoneCallback;
+		ignoreCBS = _ignoreCBS;
+		initialCrossProduct = targetPos.x * enemy.transform.position.y - targetPos.y * enemy.transform.position.x;
+	}
+
+	public void FollowTarget(Transform _followTarget, bool _ignoreDistanceToTarget, bool _ignoreCBS = false)
+	{
+		move = true;
+		moveDirection = Vector2.zero;
+		followTarget = _followTarget;
+		ignoreDistanceToTarget = _ignoreDistanceToTarget;
+		ignoreCBS = _ignoreCBS;
+		initialCrossProduct = followTarget.transform.position.x * enemy.transform.position.y - followTarget.transform.position.y * enemy.transform.position.x;
+	}
+
+	public void WalkInDirection(Vector2 _dir, bool _ignoreCBS = false)
+	{
+		move = true;
+		moveDirection = _dir;
+		followTarget = null;
+		ignoreCBS = _ignoreCBS;
+	}
+
+	public void StopMovement()
+	{
+		move = false;
+	}
+
+	private void ResetClass()
+	{
+		enemy.SpriteRenderer.transform.localPosition = Vector3.zero;
+		enemy.Animator.SetFloat("Speed", 1);
+		doJump = false;
+		move = false;
+		UseCBS = true;
+		IsStuck = false;
+		elapsedStuckTime = 0;
+		prevPosition = Vector2.zero;
+	}
+
+	public void OnObjectSpawn()
+	{
+		ResetClass();
+	}
+
+	public void OnSpawning()
+	{
+		ResetClass();
+	}
+
+	private void CheckIfStuck()
+	{
+		float distance = Vector2.Distance(prevPosition, transform.position);
+		if (distance < stuckCheckDistance)
+		{
+			elapsedStuckTime += Time.fixedDeltaTime;
+
+			if (elapsedStuckTime >= maxStuckTime)
+			{
+				IsStuck = true;
+				elapsedStuckTime = 0;
+				StuckMoveDir = -MoveDir;
+			}
+		}
+		else
+		{
+			prevPosition = transform.position;
+			elapsedStuckTime = 0;
+		}
+	}
+
+	private void CheckIfUnstuck()
+	{
+		if (Vector2.Distance(prevPosition, transform.position) > stuckCheckDistance)
+		{
+			elapsedDeathTime = 0;
+			elapsedStuckTime += Time.fixedDeltaTime;
+
+			if (elapsedStuckTime >= maxUnstuckTime)
+			{
+				IsStuck = false;
+				elapsedStuckTime = 0;
+			}
+		}
+		else
+		{
+			elapsedStuckTime = 0;
+			elapsedDeathTime += Time.fixedDeltaTime;
+
+			if (elapsedDeathTime > stuckDeathTimer)
+			{
+				Debug.Log("Stuck death");
+				enemy.DamageReceiver.Kill();
+			}
+		}
+	}
 }

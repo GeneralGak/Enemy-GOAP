@@ -1,56 +1,85 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// Base class for all goals
+/// </summary>
 public abstract class BaseGoal : MonoBehaviour
 {
-    public const int MaxPriority = 100;
-    
-    public bool CanRun { get; protected set; } = false;
-    public int Priority { get; protected set; } = 0;
-    public bool IsActive { get; protected set; } = false;
+	[SerializeField] protected int basePriority = 30;
+	[SerializeField] private bool setAsCommitTo = false;
+	[SerializeField] private bool canRunOnDeath = false;
 
-    protected BaseAction LinkedAction;
-    protected Enemy enemy;
-    protected GOAPBrain brain;
+	public const int MaxPriority = 100;
 
-    void Awake()
-    {
-        enemy = GetComponentInParent<Enemy>();
-        brain = GetComponentInParent<GOAPBrain>();
-    }
+	public bool CanRun { get; protected set; } = false;
+	public bool CommitTo { get; private set; } = false;
+	public bool RunOnDeath { get; private set; } = false;
+	public int Priority { get; protected set; } = 0;
+	public bool IsActive { get; protected set; } = false;
 
-    public virtual void Activate() 
-    {
-        IsActive = true;
-    }
+	protected BaseAction LinkedAction;
+	protected Enemy enemy;
+	protected GOAPBrain brain;
 
-    public virtual void Deactivate() 
-    {
-        LinkedAction.End();
+	protected virtual void Awake()
+	{
+		enemy = GetComponentInParent<Enemy>();
+		brain = GetComponentInParent<GOAPBrain>();
+	}
 
-        IsActive = false;
-    }
+	protected virtual void Start()
+	{
 
-    public void SetAction(BaseAction newAction)
-    {
-        LinkedAction = newAction;
+	}
 
-        LinkedAction.Begin();
-    }
+	public virtual void Activate()
+	{
+		if (setAsCommitTo)
+		{
+			CommitTo = true;
+		}
 
-    /// <summary>
-    /// Used to set CanRun and Priority before choosing goal
-    /// </summary>
-    public abstract void PreTick();
+		if (canRunOnDeath)
+		{
+			RunOnDeath = true;
+		}
 
-    public void Tick()
-    {
-        LinkedAction.Tick();
-    }
+		IsActive = true;
+	}
 
-    public virtual string GetDebugInfo()
-    {
-        return $"{GetType().Name}: Priority={Priority} CanRun={CanRun}";
-    }
+	public virtual void Deactivate()
+	{
+		CommitTo = false;
+		LinkedAction.End();
+		LinkedAction = null;
+
+		IsActive = false;
+	}
+
+	public void SetAction(BaseAction newAction)
+	{
+		if (LinkedAction != null && newAction != LinkedAction)
+		{
+			LinkedAction.End();
+		}
+
+		LinkedAction = newAction;
+
+		LinkedAction.Begin();
+	}
+
+	/// <summary>
+	/// Used to set CanRun and Priority before choosing goal
+	/// </summary>
+	public abstract void PreTick();
+
+	public void Tick()
+	{
+		LinkedAction.Tick();
+	}
+
+	public virtual string GetDebugInfo()
+	{
+		return $"{GetType().Name}: Priority={Priority} CanRun={CanRun}";
+	}
 }

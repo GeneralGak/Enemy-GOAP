@@ -1,35 +1,30 @@
-using Sirenix.OdinInspector;
-using System.Collections;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.AI;
 using UnityEngine.Events;
 
 public class ContextBasedSteeringBehavior : MonoBehaviour
 {
 	[SerializeField] private int rayCount;
 	[SerializeField] private float detectionRange;
+	[SerializeField] private float agentColliderSize = 0.2f;
 	[SerializeField] private LayerMask dangerLayerMask;
 	[SerializeField] private LayerMask layersToMoveAwayFrom;
-	
-	[SerializeField] private float maxSpeed;
-	[SerializeField, Range(0, 1)] private float steerForce;
+	[SerializeField] private bool showObstacleGizmo;
+	[SerializeField] private bool showInterestGizmo;
 
+	private Vector2 chosenDirection;
 	private Vector2[] rayDirections;
 	private float[] interest;
 	private float[] danger;
-	private Vector2 chosenDirection;
-	private Vector2 velocity;
-	private Vector2 targetVelocity;
 	private List<Vector2> directionsToDangers = new List<Vector2>();
 
 	public BaseAction CurrentAction { get; set; }
-
-	public Vector2 Velocity { get { return velocity; } }
-	public Vector2 DesiredVelocity { get { return targetVelocity; } }
 	public int CurrentUsedRayNumber { get; private set; } = 0;
 	public int RayCount { get { return rayCount; } }
 	public UnityEvent<Vector2, Vector2> OnDangerCheck { get; set; } = new UnityEvent<Vector2, Vector2>();
+	public float DetectionRange { get { return detectionRange; } set { detectionRange = value; } }
+	public float AgentColliderSize { get { return agentColliderSize; } set { agentColliderSize = value; } }
 
 
 	protected void Awake()
@@ -48,7 +43,7 @@ public class ContextBasedSteeringBehavior : MonoBehaviour
 	}
 
 	public Vector2 GetDir(Vector2 _targetDir)
-    {
+	{
 		for (int i = 0; i < rayCount; i++)
 		{
 			interest[i] = 0;
@@ -67,11 +62,46 @@ public class ContextBasedSteeringBehavior : MonoBehaviour
 		return chosenDirection.normalized;
 	}
 
+	public Vector2 GetDir(Vector2 _targetDir, Func<Vector2, Vector2, float> _getWeight)
+	{
+		for (int i = 0; i < rayCount; i++)
+		{
+			interest[i] = 0;
+			danger[i] = 0;
+		}
+
+		SetDanger();
+		SetInterest(_targetDir, _getWeight);
+		ChooseDirection();
+
+		foreach (Vector2 dirToDanger in directionsToDangers)
+		{
+			OnDangerCheck?.Invoke(dirToDanger, chosenDirection);
+		}
+
+		return chosenDirection.normalized;
+	}
+
 	private void SetInterest(Vector2 _targetDir)
 	{
 		for (int i = 0; i < rayCount; i++)
 		{
-			interest[i] = CurrentAction.GetWeight(rayDirections[i], _targetDir);
+			float weightResult;
+			if (CurrentAction == null) weightResult = CBS_WeightHelper.GoTowards(rayDirections[i], _targetDir);
+			else weightResult = CurrentAction.GetWeight(rayDirections[i], _targetDir);
+
+			if (weightResult > 0 && weightResult > interest[i])
+			{
+				interest[i] = weightResult;
+			}
+		}
+	}
+
+	private void SetInterest(Vector2 _targetDir, Func<Vector2, Vector2, float> _getWeight)
+	{
+		for (int i = 0; i < rayCount; i++)
+		{
+			interest[i] = _getWeight(rayDirections[i], _targetDir);
 		}
 	}
 
@@ -83,7 +113,19 @@ public class ContextBasedSteeringBehavior : MonoBehaviour
 
 		foreach (Collider2D dangerCollider in dangers)
 		{
-			if (dangerCollider.gameObject != gameObject && !nonDuplicateDangers.Contains(dangerCollider))
+			if (dangerCollider.transform.root.gameObject != gameObject && !nonDuplicateDangers.Contains(dangerCollider) && !dangerCollider.isTrigger)
+			{
+				nonDuplicateDangers.Add(dangerCollider);
+			}
+		}
+
+		dangers = Physics2D.OverlapCircleAll(transform.position, detectionRange, layersToMoveAwayFrom);
+
+		foreach (Collider2D dangerCollider in dangers)
+		{
+			if (dangerCollider.attachedRigidbody != null && dangerCollider.attachedRigidbody.gameObject == gameObject) continue;
+
+			if (dangerCollider.transform.root.gameObject != gameObject && !nonDuplicateDangers.Contains(dangerCollider) && !dangerCollider.isTrigger)
 			{
 				nonDuplicateDangers.Add(dangerCollider);
 			}
@@ -94,22 +136,31 @@ public class ContextBasedSteeringBehavior : MonoBehaviour
 		foreach (Collider2D dangerCollider in nonDuplicateDangers)
 		{
 			Vector2 dirToDanger = dangerCollider.ClosestPoint(transform.position) - (Vector2)transform.position;
-			float weight = dirToDanger.magnitude > detectionRange ? 0 : (1 - dirToDanger.magnitude / detectionRange) * 2;
-			weight = Mathf.Clamp(weight, 0, 1);
+
+			// Calculate weight based on the distance
+			float weight;
+			if (dangerCollider.gameObject.layer == 1 << layersToMoveAwayFrom.value) weight = 1;
+			else weight = dirToDanger.magnitude <= agentColliderSize ? 1 : (detectionRange - dirToDanger.magnitude) / detectionRange;
+			//weight = Mathf.Clamp(weight, 0, 1);
 
 			directionsToDangers.Add(dirToDanger);
 
 			for (int i = 0; i < rayCount; i++)
 			{
-				float dotProduct = Vector2.Dot(rayDirections[i], dirToDanger.normalized);
+				float dotProduct = Vector2.Dot(dirToDanger.normalized, rayDirections[i]);
 
-				if (dangerCollider.gameObject.layer == layersToMoveAwayFrom)
+				float newDangerValue = dotProduct * weight;
+				//if (dangerCollider.gameObject.layer == layersToMoveAwayFrom)
+				//{
+				//	dotProduct = 1 - Mathf.Abs(dotProduct - 0.65f); // Enemy avoidance
+				//}
+
+				if (newDangerValue > danger[i])
 				{
-					dotProduct = 1 - Mathf.Abs(dotProduct - 0.65f);
+					danger[i] = newDangerValue;
 				}
-
-				danger[i] += dotProduct * weight;
-				if (danger[i] > 1) { danger[i] = 1; }
+				//danger[i] += dotProduct * weight;
+				//if (danger[i] > 1) { danger[i] = 1; }
 			}
 		}
 	}
@@ -120,10 +171,12 @@ public class ContextBasedSteeringBehavior : MonoBehaviour
 
 		for (int i = 0; i < rayCount; i++)
 		{
-			if (danger[i] > 0)
-			{
-				interest[i] -= danger[i];
-			}
+			interest[i] = Mathf.Clamp01(interest[i] - danger[i]);
+
+			//if (danger[i] > 0)
+			//{
+			//	interest[i] -= danger[i];
+			//}
 
 			chosenDirection += rayDirections[i] * interest[i];
 		}
@@ -131,10 +184,47 @@ public class ContextBasedSteeringBehavior : MonoBehaviour
 		chosenDirection.Normalize();
 	}
 
+	/// <summary>
+	/// Used for CBS visualizer
+	/// </summary>
 	public Vector2[] GetRays(out float[] _interest)
 	{
 		_interest = interest;
 
 		return rayDirections;
+	}
+
+	public void ShowGizmos(bool _showObstacleGizmo, bool _showInterestGizmo)
+	{
+		showInterestGizmo = _showInterestGizmo;
+		showObstacleGizmo = _showObstacleGizmo;
+	}
+
+	private void OnDrawGizmos()
+	{
+		if (Application.isPlaying)
+		{
+			if (showObstacleGizmo && danger != null)
+			{
+				Gizmos.color = Color.red;
+
+				for (int i = 0; i < danger.Length; i++)
+				{
+					Gizmos.DrawRay(transform.position, rayDirections[i] * danger[i]);
+				}
+			}
+
+			if (showInterestGizmo && interest != null)
+			{
+				Gizmos.color = Color.green;
+				for (int i = 0; i < interest.Length; i++)
+				{
+					Gizmos.DrawRay(transform.position, rayDirections[i] * interest[i]);
+				}
+
+				Gizmos.color = Color.yellow;
+				Gizmos.DrawRay(transform.position, chosenDirection * 1);
+			}
+		}
 	}
 }

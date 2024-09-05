@@ -1,70 +1,68 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class Action_Wander : BaseAction
 {
-    [SerializeField] private float wanderCircleRadius;
-    [SerializeField, Range(0, 1)] private float lerpDistance = 0.5f;
+	public float wanderCircleRadius;
+	[SerializeField, Range(0, 1)] private float lerpDistance = 0.3f;
+	[SerializeField] private float angleChange = 0.1f;
+	[SerializeField] private LayerMask collidersToMoveAwayFrom;
+	[SerializeField] private float LockTurningTime = 1.5f;
 
-    private const float CIRCLE_DISTANCE = 1.5f;
-    private const float ANGLE_CHANGE = 0.08f;
-    private float wanderAngle;
-    private Vector2 displacement;
-    private Vector2 spawnPos;
+	private Vector2 wanderCenter;
+	private Vector2 wanderDir;
+	private bool colliding;
+	private bool isFlipped;
+	private float elapsedTimeBeforeCanTurn;
+	private Coroutine removeCollisionCall;
+
 
 	public override float Cost()
 	{
 		return 0f;
 	}
 
-    protected override void Init()
-    {
-        spawnPos = transform.position;
-    }
+	public override void Init()
+	{
+		if (enemy.WanderCenter == Vector2.zero)
+		{
+			wanderCenter = transform.position;
+		}
+		else
+		{
+			wanderCenter = enemy.WanderCenter;
+		}
+	}
 
-    public override void Begin()
-    {
-        enemy.Animator.SetTrigger("DoWalk");
-        enemy.Movement.MoveToPosition(spawnPos);
+	public override void Begin()
+	{
+		enemy.Animator.SetTrigger("DoWalk");
+		enemy.Movement.MoveToPosition(wanderCenter, true);
+		isFlipped = enemy.Aiming.IsFlipped;
+		elapsedTimeBeforeCanTurn = LockTurningTime;
 
-        base.Begin();
-    }
+		base.Begin();
+	}
 
-    public override void Tick()
-    {
+	public override void Tick()
+	{
+		elapsedTimeBeforeCanTurn += Time.deltaTime;
 
-    }
+		float lerpValue = (Vector2.Distance(wanderCenter, transform.position) - wanderCircleRadius * lerpDistance) / wanderCircleRadius * lerpDistance;
 
-    public override void End()
-    {
-        enemy.Movement.StopMovement();
+		Vector2 goalDir = Vector2.Lerp(enemy.Movement.MoveDir, wanderCenter - (Vector2)transform.position, lerpValue);
 
-        base.End();
-    }
+		wanderDir = enemy.Steering.CalculateWanderDir(goalDir, wanderCircleRadius, angleChange);
+	}
 
-    private Vector2 CalculateWanderDir()
-    {
-        Vector2 wanderDir = enemy.CBS.Velocity;
-        wanderDir.Normalize();
-        wanderDir *= CIRCLE_DISTANCE;
+	public override void End()
+	{
+		enemy.Movement.StopMovement();
 
-        displacement = new Vector2(0, -1);
-        displacement *= wanderCircleRadius;
+		base.End();
+	}
 
-        wanderAngle += Random.value * ANGLE_CHANGE - ANGLE_CHANGE * 0.5f;
-
-        float vectorLength = displacement.magnitude;
-        displacement = new Vector2(Mathf.Cos(wanderAngle) * vectorLength, Mathf.Sin(wanderAngle) * vectorLength);
-
-        wanderDir += displacement;
-        return wanderDir;
-    }
-
-    public override float GetWeight(Vector2 _rayDirection, Vector2 _goalDirection)
-    {
-        float lerpValue = (Vector2.Distance(spawnPos, transform.position) - wanderCircleRadius * lerpDistance) / wanderCircleRadius * lerpDistance;
-        Vector2 goalDir = Vector2.Lerp(CalculateWanderDir(), _goalDirection, lerpValue);
-        return CBS_WeightHelper.GoTowards(_rayDirection, goalDir);
-    }
+	public override float GetWeight(Vector2 _rayDirection, Vector2 _goalDirection)
+	{
+		return CBS_WeightHelper.GoTowards(_rayDirection, wanderDir);
+	}
 }

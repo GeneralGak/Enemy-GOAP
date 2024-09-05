@@ -1,124 +1,136 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 
-public class TrackedTarget
+/// <summary>
+/// Gives an AI different levels of awareness of targets
+/// Awareness is based on vision, damage received and proximity
+/// Sets awareness score on all visible and previously visible targets
+/// Awareness scores decay over time if no new information is received
+/// </summary>
+public abstract class AwarenessSystem : MonoBehaviour
 {
-    public GameObject Detectable;
-    public Vector3 RawPosition;
+	[SerializeField] float awarenessDecayDelay = 0.3f;
+	[SerializeField] float awarenessDecayRate = 0.1f;
 
-    public float LastSensedTime = -1f;
-    public float Awareness; // 0     = not aware (will be culled); 
-                            // 0-1   = rough idea (no set location); 
-                            // 1-2   = likely target (location)
-                            // 2     = fully detected
-
-    public bool UpdateAwareness(GameObject target, Vector3 position, float awareness, float minAwareness)
-    {
-        var oldAwareness = Awareness;
-
-        if (target != null)
-            Detectable = target;
-        RawPosition = position;
-        LastSensedTime = Time.time;
-        Awareness = Mathf.Clamp(Mathf.Max(Awareness, minAwareness) + awareness, 0f, 2f);
-
-        if (oldAwareness < 2f && Awareness >= 2f)
-            return true;
-        if (oldAwareness < 1f && Awareness >= 1f)
-            return true;
-        if (oldAwareness <= 0f && Awareness >= 0f)
-            return true;
-
-        return false;
-    }
-
-    public bool DecayAwareness(float decayTime, float amount)
-    {
-        // detected too recently - no change
-        if ((Time.time - LastSensedTime) < decayTime)
-            return false;
-
-        var oldAwareness = Awareness;
-
-        Awareness -= amount;
-
-        if (oldAwareness >= 2f && Awareness < 2f)
-            return true;
-        if (oldAwareness >= 1f && Awareness < 1f)
-            return true;
-        return Awareness <= 0f;
-    }
-}
-
-public class AwarenessSystem : MonoBehaviour
-{
-    [SerializeField] AnimationCurve visionSensitivity;
-    [SerializeField] float visionMinimumAwareness = 1f;
-    [SerializeField] float visionAwarenessBuildRate = 5f;
-
-    [SerializeField] float beingDamagedMinimumAwareness = 0f;
-    [SerializeField] float beingDamagedAwarenessBuildRate = 10f;
-
-    [SerializeField] float awarenessDecayDelay = 0.1f;
-    [SerializeField] float awarenessDecayRate = 0.1f;
-
-    Dictionary<GameObject, TrackedTarget> targets = new Dictionary<GameObject, TrackedTarget>();
-
-    public Dictionary<GameObject, TrackedTarget> ActiveTargets { get { return targets; } }
+	[SerializeField] float damageTakenDecayDelay = 0.8f;
+	[SerializeField] float damageTakenDecayRate = 0.2f;
+	[SerializeField] float damageTakenTriggerAmount = 15f;
 
 
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
+	private Dictionary<GameObject, TrackedTarget> targets = new Dictionary<GameObject, TrackedTarget>();
 
-    // Update is called once per frame
-    void Update()
-    {
-        List<GameObject> toCleanup = new List<GameObject>();
-        foreach (var targetGO in targets.Keys)
-        {
-            if (targets[targetGO].DecayAwareness(awarenessDecayDelay, awarenessDecayRate * Time.deltaTime))
-            {
-                if (targets[targetGO].Awareness <= 0f)
-                {
-                    toCleanup.Add(targetGO);
-                }
-            }
-        }
 
-        // cleanup targets that are no longer detected
-        foreach (var target in toCleanup)
-            targets.Remove(target);
-    }
+	public Dictionary<GameObject, TrackedTarget> ActiveTargets { get { return targets; } }
+	public float VisionMinimumAwareness { get { return 2; } }
+	public float BeingDamagedMinimumAwareness { get { return 1; } }
+	public float ProximityMinimumAwareness { get { return 1; } }
+	public float AwarenessDecayDelay { get { return awarenessDecayDelay; } set { awarenessDecayDelay = value; } }
+	public float AwarenessDecayRate { get { return awarenessDecayRate; } set { awarenessDecayRate = value; } }
 
-    void UpdateAwareness(GameObject targetGO, Vector3 position, float awareness, float minAwareness)
-    {
-        // not in targets
-        if (!targets.ContainsKey(targetGO))
-            targets[targetGO] = new TrackedTarget();
 
-        // update target awareness
-        targets[targetGO].UpdateAwareness(targetGO, position, awareness, minAwareness);
-    }
-
-    public void ReportCanSee(GameObject seenGO)
-    {
-        // determine where the target is in the field of view
-        var vectorToTarget = (seenGO.transform.position - transform.position).normalized;
-        var dotProduct = Vector3.Dot(vectorToTarget, transform.up);
-
-        // determine the awareness contribution
-        var awareness = visionSensitivity.Evaluate(dotProduct) * visionAwarenessBuildRate * Time.deltaTime;
-
-        UpdateAwareness(seenGO.gameObject, seenGO.transform.position, awareness, visionMinimumAwareness);
-    }
-
-    public void ReportBeingDamaged()
+	// Update is called once per frame
+	void Update()
 	{
+		List<GameObject> toCleanup = new List<GameObject>();
+		foreach (var targetGO in targets.Keys)
+		{
+			targets[targetGO].DecayDamageDealt(damageTakenDecayDelay, damageTakenDecayRate * Time.deltaTime);
+			if (targets[targetGO].DecayAwareness(awarenessDecayDelay, awarenessDecayRate * Time.deltaTime))
+			{
+				if (targets[targetGO].Awareness <= 1f)
+					OnHavingLostDetection(targetGO);
+				else if (targets[targetGO].Awareness == 0f)
+				{
+					OnBeingFullyLost();
+					toCleanup.Add(targetGO);
+				}
+			}
+		}
 
+		// cleanup targets that are no longer detected
+		foreach (var target in toCleanup)
+			targets.Remove(target);
 	}
+
+	void UpdateAwareness(GameObject _targetGO, bool _canSetTarget, Vector3 _position, float _minAwareness)
+	{
+		// not in targets
+		if (!targets.ContainsKey(_targetGO))
+		{
+			targets[_targetGO] = new TrackedTarget();
+		}
+
+		// update target awareness
+		if (targets[_targetGO].UpdateAwareness(_targetGO, _canSetTarget, _position, _minAwareness))
+		{
+			if (targets[_targetGO].Awareness >= 2f)
+				OnBeingDetected(_targetGO);
+			else if (targets[_targetGO].Awareness >= 1f)
+				OnBeingSuspicios(_position);
+		}
+	}
+
+	private void UpdateDamageDealt(GameObject _damageDealer, float _damageAmount)
+	{
+		targets[_damageDealer].UpdateDamageDealt(_damageAmount);
+
+		if (targets[_damageDealer].damageDealt > damageTakenTriggerAmount)
+		{
+			float highestDamage = 0f;
+			GameObject priorityTarget = null;
+			foreach (GameObject target in targets.Keys)
+			{
+				if (targets[target].damageDealt > highestDamage && targets[target].Target != null)
+				{
+					highestDamage = targets[target].damageDealt;
+					priorityTarget = targets[target].Target;
+				}
+			}
+
+			if (priorityTarget != null)
+			{
+				OnHavingTakenHighDamage(priorityTarget);
+			}
+		}
+	}
+
+	public void ReportCanSee(GameObject _seenGO)
+	{
+		UpdateAwareness(_seenGO.gameObject, true, _seenGO.transform.position, 2);
+	}
+
+	public void ReportBeingDamaged(GameObject _damagingGO, float _damage)
+	{
+		if (_damagingGO == null) return;
+
+		UpdateAwareness(_damagingGO.gameObject, false, _damagingGO.transform.position, 1);
+		UpdateDamageDealt(_damagingGO, _damage);
+	}
+
+	public void ReportInProximity(GameObject target)
+	{
+		UpdateAwareness(target, false, target.transform.position, 1);
+	}
+
+	public void LooseAwareness(GameObject _go)
+	{
+		targets[_go].Awareness = 0f;
+		targets[_go].Target.GetComponent<DamageReceiver>().onDeath.RemoveListener(LooseAwareness);
+	}
+
+	public virtual void ResetClass()
+	{
+		targets.Clear();
+	}
+
+	protected abstract void OnBeingDetected(GameObject _target);
+
+	protected abstract void OnBeingSuspicios(Vector2 _position);
+
+	protected abstract void OnHavingLostDetection(GameObject _target);
+
+	protected abstract void OnBeingFullyLost();
+
+	protected abstract void OnHavingTakenHighDamage(GameObject _dangerTarget);
 }

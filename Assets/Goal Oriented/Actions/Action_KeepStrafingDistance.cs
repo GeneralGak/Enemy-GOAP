@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class Action_KeepStrafingDistance : BaseAction
@@ -11,7 +9,7 @@ public class Action_KeepStrafingDistance : BaseAction
     private bool strafingClockwise;
     private Vector2 strafeDir;
 
-    protected override void Init()
+    public override void Init()
     {
         if (Random.Range(0, 2) == 0)
         {
@@ -31,8 +29,8 @@ public class Action_KeepStrafingDistance : BaseAction
     public override void Begin()
     {
         enemy.Animator.SetTrigger("DoWalk");
-        enemy.CBS.OnDangerCheck.AddListener(CheckDangersWhileStrafing);
-        enemy.Movement.FollowTarget(enemy.Target.transform);
+        enemy.Steering.CBS.OnDangerCheck.AddListener(CheckDangersWhileStrafing);
+        enemy.Movement.FollowTarget(enemy.Target.transform, false);
 
         base.Begin();
     }
@@ -45,7 +43,7 @@ public class Action_KeepStrafingDistance : BaseAction
     public override void End()
     {
         enemy.Movement.StopMovement();
-        enemy.CBS.OnDangerCheck.RemoveListener(CheckDangersWhileStrafing);
+        enemy.Steering.CBS.OnDangerCheck.RemoveListener(CheckDangersWhileStrafing);
         base.End();
     }
 

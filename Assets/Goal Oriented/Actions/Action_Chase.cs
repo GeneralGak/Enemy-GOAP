@@ -1,10 +1,8 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class Action_Chase : BaseAction
 {
-    protected override void Init()
+    public override void Init()
     {
 
     }
@@ -17,7 +15,7 @@ public class Action_Chase : BaseAction
     public override void Begin()
     {
         enemy.Animator.SetTrigger("DoWalk");
-        enemy.Movement.FollowTarget(enemy.Target.transform);
+        enemy.Movement.FollowTarget(enemy.Target.transform, false);
 
         base.Begin();
     }

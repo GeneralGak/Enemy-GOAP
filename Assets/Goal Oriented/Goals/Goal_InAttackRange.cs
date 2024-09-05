@@ -1,11 +1,7 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+
 
 public class Goal_InAttackRange : BaseGoal
 {
-    [SerializeField] private int basePriority = 35;
-
     public override void PreTick()
     {
         if(enemy.DistanceToTarget >= 0)

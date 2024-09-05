@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class Action_TestMovement : BaseAction
@@ -12,7 +10,7 @@ public class Action_TestMovement : BaseAction
         return 0f;
     }
     
-    protected override void Init()
+    public override void Init()
     {
         
     }
@@ -22,11 +20,6 @@ public class Action_TestMovement : BaseAction
         if (Input.GetMouseButtonDown(0))
         {
             enemy.Movement.MoveToPosition(Camera.main.ScreenToWorldPoint(Input.mousePosition));
-        }
-
-        if (Input.GetMouseButtonDown(1))
-        {
-            enemy.Movement.JumpToPosition(Camera.main.ScreenToWorldPoint(Input.mousePosition), jumpHeight, jumpDuration);
         }
     }
 

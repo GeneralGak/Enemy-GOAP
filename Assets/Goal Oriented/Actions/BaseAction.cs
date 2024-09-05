@@ -1,59 +1,94 @@
-using System.Collections;
+using Sirenix.OdinInspector;
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// Base class for all actions
+/// </summary>
 public abstract class BaseAction : MonoBehaviour
 {
-    [SerializeField] List<BaseGoal> satisfiableGoals = new List<BaseGoal>();
+	[SerializeField] List<BaseGoal> satisfiableGoals = new List<BaseGoal>();
+	[SerializeField] protected bool satisfyOnHealth;
+	[SerializeField][ShowIf(nameof(satisfyOnHealth))] HealthStatus healthStatus;
+	[SerializeField][ShowIf(nameof(satisfyOnHealth))] float percentHealth;
 
-    protected Enemy enemy;
+	protected Enemy enemy;
 
-    public bool HasFinished { get; protected set; } = false;
+	public bool HasFinished { get; protected set; } = false;
 
-    void Awake()
-    {
-        enemy = GetComponentInParent<Enemy>();
-    }
 
-    void Start()
-    {
-        Init();
-    }
-    
-    protected abstract void Init();
+	public enum HealthStatus
+	{
+		LessThen,
+		MoreThen
+	}
 
-    public virtual bool CanSatisfy(BaseGoal _goal)
-    {
-        foreach (BaseGoal goal in satisfiableGoals)
-        {
-            if(_goal == goal)
-            {
-                return true;
-            }
-        }
+	void Awake()
+	{
+		enemy = GetComponentInParent<Enemy>();
+	}
 
-        return false;
-    }
-    public abstract float Cost();
+	void Start()
+	{
+		Init();
+	}
 
-    public virtual void Begin()
-    {
-        enemy.CBS.CurrentAction = this;
-    }
+	public abstract void Init();
 
-    public abstract void Tick();
-    public virtual void End()
-    {
-        enemy.CBS.CurrentAction = null;
-    }
+	public virtual bool CanSatisfy(BaseGoal _goal)
+	{
+		foreach (BaseGoal goal in satisfiableGoals)
+		{
+			if (_goal == goal)
+			{
+				bool satisfy = true;
 
-    public virtual float GetWeight(Vector2 _rayDirection, Vector2 _goalDirection)
-    {
-        return 0;
-    }
+				if (satisfyOnHealth)
+				{
+					float percentOfHealth = enemy.DamageReceiver.CurrentHealth / enemy.DamageReceiver.MaxHealth * 100;
+					if ((healthStatus == HealthStatus.LessThen && percentOfHealth > percentHealth) ||
+						(healthStatus == HealthStatus.MoreThen && percentOfHealth < percentHealth))
+					{
+						satisfy = false;
+					}
+				}
 
-    public virtual string GetDebugInfo()
-    {
-        return string.Empty;
-    }
+				return satisfy;
+			}
+		}
+
+		return false;
+	}
+
+	public abstract float Cost();
+
+	public virtual void Begin()
+	{
+		if (enemy.Steering)
+		{
+			enemy.Steering.CBS.CurrentAction = this;
+		}
+
+		HasFinished = false;
+	}
+
+	public abstract void Tick();
+
+	public virtual void End()
+	{
+		if (enemy.Steering)
+		{
+			enemy.Steering.CBS.CurrentAction = null;
+		}
+	}
+
+	public virtual float GetWeight(Vector2 _rayDirection, Vector2 _goalDirection)
+	{
+		return 0;
+	}
+
+	public virtual string GetDebugInfo()
+	{
+		return string.Empty;
+	}
 }

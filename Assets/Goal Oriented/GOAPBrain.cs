@@ -1,133 +1,186 @@
+using System.Buffers.Text;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 
+/// <summary>
+/// Goal Oriented Action Planning (GOAP)
+/// Is responsible for picking the next action to perform based on the highest prioritised goal if goal has a possible action
+/// </summary>
 public class GOAPBrain : MonoBehaviour
 {
-    BaseGoal[] Goals;
-    BaseAction[] Actions;
+	BaseGoal[] Goals;
+	BaseAction[] Actions;
+	Enemy enemy;
 
-    BaseGoal ActiveGoal;
-    BaseAction ActiveAction;
+	BaseGoal activeGoal;
+	BaseAction activeAction;
 
-    public string DebugInfo_ActiveGoal => ActiveGoal != null ? ActiveGoal.GetType().Name : "None";
-    public string DebugInfo_ActiveAction => ActiveAction != null ? $"{ActiveAction.GetType().Name}{ActiveAction.GetDebugInfo()}" : "None";
-    public int NumGoals => Goals.Length;
+	public bool DissableBrain { get; set; } = false;
+	public BaseAction ActiveAction { get { return activeAction; } }
+	public UnityAction<BaseAction> OnGoalChanged { get; set; }
 
-    public string DebugInfo_ForGoal(int index)
-    {
-        return Goals[index].GetDebugInfo();
-    }
+	// For debugging
+	public string DebugInfo_ActiveGoal => activeGoal != null ? activeGoal.GetType().Name : "None";
+	public string DebugInfo_ActiveAction => activeAction != null ? $"{activeAction.GetType().Name}{activeAction.GetDebugInfo()}" : "None";
+	public int NumGoals => Goals.Length;
+	public string DebugInfo_ForGoal(int index)
+	{
+		return Goals[index].GetDebugInfo();
+	}
+	// *********
 
-    void Awake()
-    {
-        Goals = GetComponents<BaseGoal>();
-        Actions = GetComponents<BaseAction>();        
-    }
 
-    void Start()
-    {
-        if (AIDebugger.Instance != null)
-            AIDebugger.Instance.Register(this);
-    }
+	void Awake()
+	{
+		Goals = GetComponents<BaseGoal>();
+		Actions = GetComponents<BaseAction>();
+		enemy = GetComponentInParent<Enemy>();
+	}
 
-    void OnDestroy()
-    {
-        if (AIDebugger.Instance != null)
-            AIDebugger.Instance.Deregister(this);
-    }
+	void Start()
+	{
+		if (AIDebugger.Instance != null)
+			AIDebugger.Instance.Register(this);
+	}
 
-    void Update()
-    {
-        // pretick all goals to refresh priorities
-        for (int goalIndex = 0; goalIndex < Goals.Length; ++goalIndex)
-            Goals[goalIndex].PreTick();
+	void OnDestroy()
+	{
+		if (AIDebugger.Instance != null)
+			AIDebugger.Instance.Deregister(this);
+	}
 
-        RefreshPlan();
+	void Update()
+	{
+		if (DissableBrain)
+		{
+			return;
+		}
 
-        if (ActiveGoal)
-        {
-            ActiveGoal.Tick();
+		// pretick all goals to refresh priorities
+		for (int goalIndex = 0; goalIndex < Goals.Length; ++goalIndex)
+			Goals[goalIndex].PreTick();
 
-            // if action finished - cleanup the goal
-            if (ActiveAction.HasFinished)
-            {
-                ActiveGoal.Deactivate();
-                ActiveGoal = null;
-                ActiveAction = null;
-            }
-        }
-    }
+		if ((activeGoal && !activeGoal.CommitTo) || !activeGoal || (activeGoal && activeGoal.CommitTo && enemy.DamageReceiver.IsDead))
+			RefreshPlan();
 
-    void RefreshPlan()
-    {
-        // find the best goal-action pair
-        BaseGoal bestGoal = null;
-        BaseAction bestAction = null;
-        for (int goalIndex = 0; goalIndex < Goals.Length; ++goalIndex)
-        {
-            var candidateGoal = Goals[goalIndex];
+		if (activeGoal)
+		{
+			activeGoal.Tick();
 
-            // skip if can't run
-            if (!candidateGoal.CanRun)
-                continue;
+			// if action finished - cleanup the goal
+			if (activeAction.HasFinished)
+			{
+				activeGoal.Deactivate();
+				activeGoal = null;
+				activeAction = null;
+			}
+		}
+	}
 
-            // skip if current best goal is a higher priority
-            if (bestGoal != null && bestGoal.Priority > candidateGoal.Priority)
-                continue;
+	void RefreshPlan()
+	{
+		// find the best goal-action pair
+		BaseGoal bestGoal = null;
+		BaseAction bestAction = null;
+		for (int goalIndex = 0; goalIndex < Goals.Length; ++goalIndex)
+		{
+			var candidateGoal = Goals[goalIndex];
 
-            // find the cheapest action for this goal
-            BaseAction bestActionForCandidateGoal = null;
-            for (int actionIndex = 0; actionIndex < Actions.Length; ++actionIndex)
-            {
-                var candidateAction = Actions[actionIndex];
+			// skip if goal can't run when AI is dead
+			if (!candidateGoal.RunOnDeath && enemy.DamageReceiver.IsDead)
+				continue;
 
-                // skip if action cannot satisfy the goal
-                if (!candidateAction.CanSatisfy(candidateGoal))
-                    continue;
+			// skip if can't run
+			if (!candidateGoal.CanRun)
+				continue;
 
-                // is this action more expensive - if so skip
-                if (bestActionForCandidateGoal != null && candidateAction.Cost() > bestActionForCandidateGoal.Cost())
-                    continue;
+			// skip if current best goal is a higher priority
+			if (bestGoal != null && bestGoal.Priority > candidateGoal.Priority)
+				continue;
 
-                bestActionForCandidateGoal = candidateAction;
-            }
+			// find the cheapest action for this goal
+			BaseAction bestActionForCandidateGoal = null;
+			for (int actionIndex = 0; actionIndex < Actions.Length; ++actionIndex)
+			{
+				var candidateAction = Actions[actionIndex];
 
-            // found a viable action
-            if (bestActionForCandidateGoal != null)
-            {
-                bestGoal = candidateGoal;
-                bestAction = bestActionForCandidateGoal;
-            }
-        }
+				// skip if action cannot satisfy the goal
+				if (!candidateAction.CanSatisfy(candidateGoal))
+					continue;
 
-        // current plan holds - do nothing
-        if (bestGoal == ActiveGoal && bestAction == ActiveAction)
-            return;
+				// is this action more expensive - if so skip
+				if (bestActionForCandidateGoal != null && candidateAction.Cost() > bestActionForCandidateGoal.Cost())
+					continue;
 
-        // no plan viable currently
-        if (bestGoal == null)
-        {
-            if (ActiveGoal != null)
-                ActiveGoal.Deactivate();
+				bestActionForCandidateGoal = candidateAction;
+			}
 
-            ActiveGoal = null;
-            ActiveAction = null;
-            return;
-        }
+			// found a viable action
+			if (bestActionForCandidateGoal != null)
+			{
+				bestGoal = candidateGoal;
+				bestAction = bestActionForCandidateGoal;
+			}
+		}
 
-        // goal has changed?
-        if (bestGoal != ActiveGoal)
-        {
-            if (ActiveGoal != null)
-                ActiveGoal.Deactivate();
+		// current plan holds - do nothing
+		if (bestGoal == activeGoal && bestAction == activeAction)
+			return;
 
-            bestGoal.Activate();
-        }
+		// no plan viable currently
+		if (bestGoal == null)
+		{
+			if (activeGoal != null)
+				activeGoal.Deactivate();
 
-        // start the action
-        ActiveGoal = bestGoal;
-        ActiveAction = bestAction;
-        ActiveGoal.SetAction(ActiveAction);
-    }
+			activeGoal = null;
+			activeAction = null;
+			return;
+		}
+
+		// goal has changed?
+		if (bestGoal != activeGoal)
+		{
+			if (activeGoal != null)
+				activeGoal.Deactivate();
+
+			bestGoal.Activate();
+
+			OnGoalChanged?.Invoke(bestAction);
+		}
+
+		// start the action
+		activeGoal = bestGoal;
+		activeAction = bestAction;
+		activeGoal.SetAction(activeAction);
+	}
+
+	public void ResetClass()
+	{
+		if (activeGoal != null)
+		{
+			activeGoal.Deactivate();
+		}
+		activeGoal = null;
+		activeAction = null;
+		if (AIDebugger.Instance != null)
+			AIDebugger.Instance.Register(this);
+		CustomInitialization();
+	}
+
+	public void CustomInitialization()
+	{
+		for (int i = 0; i < Actions.Length; i++)
+		{
+			Actions[i].Init();
+		}
+	}
+
+	public void OnDisable()
+	{
+		if (AIDebugger.Instance != null)
+			AIDebugger.Instance.Deregister(this);
+	}
 }

@@ -1,12 +1,9 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class Goal_Wander : BaseGoal
 {
     [SerializeField] float WanderTime = 30f;
     [SerializeField] float WanderCooldownTime = 5f;
-    [SerializeField] int BasePriority = 25;
 
     float ActionTime;
 
@@ -27,7 +24,7 @@ public class Goal_Wander : BaseGoal
             CanRun = ActionTime > WanderCooldownTime;
         }
 
-        Priority = BasePriority;
+        Priority = basePriority;
     }
 
     public override void Activate() 

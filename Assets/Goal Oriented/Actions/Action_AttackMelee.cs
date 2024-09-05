@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class Action_AttackMelee : BaseFSMAction<Action_AttackMelee.AttackState>
@@ -27,7 +25,7 @@ public class Action_AttackMelee : BaseFSMAction<Action_AttackMelee.AttackState>
         return 0f;
     }
 
-    protected override void Init()
+    public override void Init()
     {
         AddState(AttackState.Windup);
         AddState(AttackState.DashForward);
